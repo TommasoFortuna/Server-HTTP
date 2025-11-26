@@ -19,11 +19,11 @@ public class MioThread extends Thread {
             BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
             PrintWriter out = new PrintWriter(s.getOutputStream(), true);
 
-            String[] request = in.readLine().split(" ");
+            String[] firstline = in.readLine().split(" ");
 
-            String method = request.length > 0 ? request[0] : null;
-            String path = request.length > 1 ? request[1] : null;
-            String version = request.length > 2 ? request[2] : null;
+            String method = firstline.length > 0 ? firstline[0] : null;
+            String path = firstline.length > 1 ? firstline[1] : null;
+            String version = firstline.length > 2 ? firstline[2] : null;
 
             System.out.println(method + " " + path + " " + version);
 
@@ -40,20 +40,33 @@ public class MioThread extends Thread {
 
             switch (method) {
                 case "GET":
-                    body = "<b>Ciao</b> a tutti";
+                    if (path.equals("/nome")) {
+                        body = "<b>Ciao</b> a tutti";
 
-                    out.println("HTTP/1.1 200 OK");
-                    out.println("Content-Type: Text/html");
-                    out.println("Content-Length: " + body.length());
-                    out.println("");
+                        out.println("HTTP/1.1 200 OK");
+                        out.println("Content-Type: Text/html");
+                        out.println("Content-Length: " + body.length());
+                        out.println("");
+
+                    } else {
+                        body = "Pagina non trovata";
+
+                        out.println("HTTP/1.1 404 NOT FOUND");
+                        out.println("Content-Type: Text/html");
+                        out.println("Content-Length: " + body.length());
+                        out.println("");
+
+                    }
                     out.println(body);
 
                     break;
 
                 default:
+
                     break;
             }
 
+            s.close();
             in.close();
             out.close();
         } catch (Exception e) {
