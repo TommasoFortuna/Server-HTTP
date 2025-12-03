@@ -1,76 +1,98 @@
 package com.fortuna;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
 
 public class MioThread extends Thread {
 
-    Socket s;
+    private Socket s;
 
     public MioThread(Socket s) {
         this.s = s;
     }
 
     public void run() {
-        try {
+        BufferedReader in = null;
+        PrintWriter out = null;
+        BufferedOutputStream outBinary = null;
 
-            BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream()));
-            PrintWriter out = new PrintWriter(s.getOutputStream(), true);
+        try {
+            in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+            out = new PrintWriter(s.getOutputStream(), true);
+            outBinary = new BufferedOutputStream(s.getOutputStream());
 
             String[] firstline = in.readLine().split(" ");
 
-            String method = firstline.length > 0 ? firstline[0] : null;
-            String path = firstline.length > 1 ? firstline[1] : null;
-            String version = firstline.length > 2 ? firstline[2] : null;
+            if (firstline.length < 3) {
+                out.println("HTTP/1.1 400 Bad Request");
+                out.println("Content-Type: Text/html");
+                out.println("Content-Length: 15");
+                out.println("");
+                out.println("Bad Request");
+                return;
+            }
+
+            String method = firstline[0];
+            String path = firstline[1];
+            String version = firstline[2];
 
             System.out.println(method + " " + path + " " + version);
 
             String header;
-
-            do {
-
-                header = in.readLine();
+            while ((header = in.readLine()) != null && !header.isEmpty()) {
                 System.out.println(header);
-
-            } while (!header.isEmpty());
-
-            String body;
+            }
 
             switch (method) {
                 case "GET":
-                    if (path.equals("/nome")) {
-                        body = "<b>Ciao</b> a tutti";
+                    if (path.endsWith("/")) {
+                        path += "index.html";
+                    }
 
+                    File file = new File("htdocs/" + path);
+
+                    if (file.exists()) {
                         out.println("HTTP/1.1 200 OK");
-                        out.println("Content-Type: Text/html");
-                        out.println("Content-Length: " + body.length());
+                        out.println("Content-Length: " + file.length());
+
+                        String mimeType = Files.probeContentType(file.toPath());
+                        if (mimeType == null)
+                            mimeType = "application/octet-stream";
+
+                        out.println("Content-Type: " + mimeType);
                         out.println("");
 
+                        try (InputStream input = new FileInputStream(file)) {
+                            byte[] buf = new byte[8192];
+                            int n;
+                            while ((n = input.read(buf)) != -1) {
+                                outBinary.write(buf, 0, n);
+                            }
+                            outBinary.flush();
+                        }
+
                     } else {
-                        body = "Pagina non trovata";
+                        String body = "404 Pagina non trovata";
 
                         out.println("HTTP/1.1 404 NOT FOUND");
                         out.println("Content-Type: Text/html");
                         out.println("Content-Length: " + body.length());
                         out.println("");
-
+                        out.println(body);
                     }
-                    out.println(body);
-
                     break;
 
                 default:
-
                     break;
             }
 
             s.close();
             in.close();
             out.close();
+            outBinary.close();
         } catch (Exception e) {
-
+            e.printStackTrace();
         }
     }
 }
